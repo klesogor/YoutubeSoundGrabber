@@ -1,7 +1,6 @@
 package grabber
 
 import (
-	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -9,16 +8,39 @@ import (
 	"strings"
 )
 
-const jsonVariableForUrls = "\"adaptive_fmts\":"
-const delimiter = "\\u0026"
+const (
+	jsonVariableForUrls = "\"adaptive_fmts\":"
+	delimiter           = "\\u0026"
+	otherDelims         = ";,"
+)
 
 func GrabDownloadUrl(videoUrl string) string {
-	urls := urlDecode(getUrlEncodedAudioUrl(getHttpContent(videoUrl)))
-	splitted := strings.Split(urls, delimiter)
-	for _, v := range splitted {
-		fmt.Println(v)
+	urls := getUrlEncodedAudioUrl(getHttpContent(videoUrl))
+	return getDownloadUrlFromParams(splitUrlStrings(urlDecode(urls)))
+}
+
+func getDownloadUrlFromParams(params []string) string {
+	url := ""
+	for _, v := range params {
+		if strings.Index(v, "url=") == 0 {
+			url = v[4:]
+		}
 	}
-	return "not implemented yet!"
+
+	return url
+}
+
+func splitUrlStrings(s string) []string {
+	res := make([]string, 0, 20)
+	splitted := strings.Split(s, delimiter)
+	for _, v := range splitted {
+		splittedParam := strings.FieldsFunc(v, func(r rune) bool {
+			return strings.Index(otherDelims, string(r)) != -1
+		})
+		res = append(res, splittedParam...)
+	}
+
+	return res
 }
 
 func urlDecode(input string) string {
