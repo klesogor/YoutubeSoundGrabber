@@ -1,8 +1,8 @@
 package grabber
 
 import (
+	"errors"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"net/url"
 	"strings"
@@ -14,9 +14,18 @@ const (
 	otherDelims         = ";,"
 )
 
-func GrabDownloadUrl(videoUrl string) string {
-	urls := getUrlEncodedAudioUrl(getHttpContent(videoUrl))
-	return getDownloadUrlFromParams(splitUrlStrings(urlDecode(urls)))
+func grabDownloadUrl(req *RequestMessage) {
+	httpContent := getHttpContent(req)
+	if req.hasError {
+		return
+	}
+	urls := getUrlEncodedAudioUrl(httpContent)
+	decodedUrls := urlDecode(urls, req)
+	if req.hasError {
+		return
+	}
+
+	req.audioDownloadUrl = getDownloadUrlFromParams(splitUrlStrings(decodedUrls))
 }
 
 func getDownloadUrlFromParams(params []string) string {
@@ -43,10 +52,10 @@ func splitUrlStrings(s string) []string {
 	return res
 }
 
-func urlDecode(input string) string {
+func urlDecode(input string, req *RequestMessage) string {
 	res, err := url.QueryUnescape(input)
 	if err != nil {
-		log.Fatal(err)
+		req.handleError(err)
 	}
 
 	return res
@@ -62,18 +71,41 @@ func getUrlEncodedAudioUrl(body string) string {
 		}
 		res.WriteRune(v)
 	}
+
 	return res.String()
 }
 
-func getHttpContent(url string) string {
-	res, err := http.Get(url)
+func getHttpContent(req *RequestMessage) string {
+	res, err := http.Get(req.videoUrl)
 	if err != nil {
-		log.Fatal(err)
+		req.handleError(err)
+		return ""
 	}
 	defer res.Body.Close()
 	response, err := ioutil.ReadAll(res.Body)
 	if err != nil {
-		log.Fatal(err)
+		req.handleError(err)
+		return ""
 	}
 	return string(response)
+}
+
+func extraVideoIdFromUrl(req *RequestMessage) {
+	url, err := url.Parse(req.videoUrl)
+	if err != nil {
+		req.handleError(err)
+		return
+	}
+	params := url.Query()
+	if strings.Index(url.Opaque, "youtube.com") == -1 {
+		req.handleError(errors.New("Invalid url base!"))
+		return
+	}
+
+	videoId := params.Get("v")
+	if videoId == "" {
+		req.handleError(err)
+		return
+	}
+	req.videoId = videoId
 }
