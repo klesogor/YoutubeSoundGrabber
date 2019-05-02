@@ -1,43 +1,76 @@
 package grabber
 
-import uuid "github.com/satori/go.uuid"
-
 type MessageHandler func(ResponseMessage)
-type FileMessageHandler func(FileMessageHandler)
+type FileMessageHandler func(ResponseFileMessage)
 
-type youtubeGrabber interface {
-	handle(req RequestMessage)
+type YoutubeGrabber interface {
+	Handle(url string, handlers Handlers)
 }
 
 type ResponseMessage struct {
-	requestId uuid.UUID
-	message   string
-	err       error
+	Message string
+	Err     error
 }
 
-type simpleYoutubeGrabber struct {
-	messageHandler MessageHandler
-	fileHandler    FileMessageHandler
+type Handlers struct {
+	MessageHandler MessageHandler
+	FileHandler    FileMessageHandler
+}
+
+type SimpleYoutubeGrabber struct {
+	fanIn chan<- RequestMessage
 }
 
 type ResponseFileMessage struct {
-	requestId uuid.UUID
-	filePath  string
-	videoId   string
+	FilePath string
+	VideoId  string
 }
 
 type RequestMessage struct {
-	requestId        uuid.UUID
 	videoUrl         string
 	videoId          string
 	audioDownloadUrl string
 	tempAudioPath    string
 	cachedAudioPath  string
 	hasError         bool
-	fanOut           chan<- interface{}
+	handler          Handlers
 }
 
 func (mes *RequestMessage) handleError(err error) {
 	mes.hasError = true
-	mes.fanOut <- ResponseMessage{message: "error ocured", err: err}
+	go mes.handler.MessageHandler(ResponseMessage{Message: "error ocured", Err: err})
+}
+
+func NewHandler(workers int) YoutubeGrabber {
+	com := make(chan RequestMessage, workers*2)
+	for i := 0; i < workers; i++ {
+		go runWorker(com)
+	}
+
+	return SimpleYoutubeGrabber{fanIn: com}
+}
+
+func runWorker(in <-chan RequestMessage) {
+	for {
+		message := <-in
+		extractVideoIdFromUrl(&message)
+		if message.hasError {
+			continue
+		}
+		grabDownloadUrl(&message)
+		if message.hasError {
+			continue
+		}
+		extractToFile(&message)
+		if message.hasError {
+			continue
+		}
+		convertToMp3(&message)
+		message.handler.FileHandler(ResponseFileMessage{FilePath: message.cachedAudioPath, VideoId: message.videoId})
+	}
+}
+
+func (grabber SimpleYoutubeGrabber) Handle(url string, handler Handlers) {
+	mes := RequestMessage{videoUrl: url}
+	grabber.fanIn <- mes
 }

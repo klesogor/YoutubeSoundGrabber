@@ -90,7 +90,7 @@ func getHttpContent(req *RequestMessage) string {
 	return string(response)
 }
 
-func extraVideoIdFromUrl(req *RequestMessage) {
+func extractVideoIdFromUrl(req *RequestMessage) {
 	url, err := url.Parse(req.videoUrl)
 	if err != nil {
 		req.handleError(err)
