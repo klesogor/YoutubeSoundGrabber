@@ -2,7 +2,9 @@ package grabber
 
 import (
 	"errors"
+	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"net/url"
 	"strings"
@@ -29,14 +31,16 @@ func grabDownloadUrl(req *RequestMessage) {
 }
 
 func getDownloadUrlFromParams(params []string) string {
-	url := ""
 	for _, v := range params {
-		if strings.Index(v, "url=") == 0 {
-			url = v[4:]
+		if isRightUrl(v) {
+			return v[4:]
 		}
 	}
 
-	return url
+	return ""
+}
+func isRightUrl(url string) bool {
+	return strings.Index(url, "url=") == 0 && strings.Index(url, "mime=audio%2Fwebm") != -1
 }
 
 func splitUrlStrings(s string) []string {
@@ -48,6 +52,13 @@ func splitUrlStrings(s string) []string {
 		})
 		res = append(res, splittedParam...)
 	}
+
+	fmt.Println(s)
+	for _, v := range res {
+		fmt.Println(v)
+	}
+
+	log.Fatal("RIP")
 
 	return res
 }
@@ -97,7 +108,7 @@ func extractVideoIdFromUrl(req *RequestMessage) {
 		return
 	}
 	params := url.Query()
-	if strings.Index(url.Opaque, "youtube.com") == -1 {
+	if strings.Index(req.videoUrl, "youtube.com") == -1 {
 		req.handleError(errors.New("Invalid url base!"))
 		return
 	}

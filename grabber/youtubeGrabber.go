@@ -1,5 +1,7 @@
 package grabber
 
+import "fmt"
+
 type MessageHandler func(ResponseMessage)
 type FileMessageHandler func(ResponseFileMessage)
 
@@ -38,6 +40,7 @@ type RequestMessage struct {
 
 func (mes *RequestMessage) handleError(err error) {
 	mes.hasError = true
+	fmt.Println(err.Error())
 	go mes.handler.MessageHandler(ResponseMessage{Message: "error ocured", Err: err})
 }
 
@@ -61,6 +64,7 @@ func runWorker(in <-chan RequestMessage) {
 		if message.hasError {
 			continue
 		}
+		fmt.Printf("%v\n", message)
 		extractToFile(&message)
 		if message.hasError {
 			continue
@@ -71,6 +75,6 @@ func runWorker(in <-chan RequestMessage) {
 }
 
 func (grabber SimpleYoutubeGrabber) Handle(url string, handler Handlers) {
-	mes := RequestMessage{videoUrl: url}
+	mes := RequestMessage{videoUrl: url, handler: handler}
 	grabber.fanIn <- mes
 }

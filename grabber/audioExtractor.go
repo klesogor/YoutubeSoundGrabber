@@ -2,6 +2,7 @@ package grabber
 
 import (
 	"bufio"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -42,6 +43,7 @@ func downloadFile(req *RequestMessage) string {
 		req.handleError(err)
 		return ""
 	}
+	fmt.Println("Received status " + string(res.StatusCode) + " from url" + req.audioDownloadUrl)
 	defer res.Body.Close()
 	response, err := ioutil.ReadAll(res.Body)
 	if err != nil {

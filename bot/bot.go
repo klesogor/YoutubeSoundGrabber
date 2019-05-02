@@ -10,7 +10,7 @@ import (
 const processMessage = "Your request have been added to process queue. Please be patient, while we converting your audio..."
 
 func RunBot(token string, youtubeGrabber grabber.YoutubeGrabber) {
-	bot, err := tgbotapi.NewBotAPI("MyAwesomeBotToken")
+	bot, err := tgbotapi.NewBotAPI(token)
 	if err != nil {
 		log.Panic(err)
 	}
@@ -34,12 +34,12 @@ func RunBot(token string, youtubeGrabber grabber.YoutubeGrabber) {
 		chatId, messageId := update.Message.Chat.ID, update.Message.MessageID
 		msg := tgbotapi.NewMessage(chatId, processMessage)
 		msg.ReplyToMessageID = messageId
+		bot.Send(msg)
 
 		messageHandler, fileHandler := createMesageHandler(chatId, messageId, bot), createFileHandler(chatId, messageId, bot)
+		handlers := grabber.Handlers{MessageHandler: messageHandler, FileHandler: fileHandler}
 
-		youtubeGrabber.Handle(update.Message.Text, grabber.Handlers{MessageHandler: messageHandler, FileHandler: fileHandler})
-
-		bot.Send(msg)
+		youtubeGrabber.Handle(update.Message.Text, handlers)
 	}
 }
 
