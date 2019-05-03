@@ -2,18 +2,10 @@ package grabber
 
 import (
 	"errors"
-	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"net/url"
 	"strings"
-)
-
-const (
-	jsonVariableForUrls = "\"adaptive_fmts\":"
-	delimiter           = "\\u0026"
-	otherDelims         = ";,"
 )
 
 func grabDownloadUrl(req *RequestMessage) {
@@ -21,7 +13,7 @@ func grabDownloadUrl(req *RequestMessage) {
 	if req.hasError {
 		return
 	}
-	urls := getUrlEncodedAudioUrl(httpContent)
+	urls := ""
 	decodedUrls := urlDecode(urls, req)
 	if req.hasError {
 		return
@@ -43,26 +35,6 @@ func isRightUrl(url string) bool {
 	return strings.Index(url, "url=") == 0 && strings.Index(url, "mime=audio%2Fwebm") != -1
 }
 
-func splitUrlStrings(s string) []string {
-	res := make([]string, 0, 20)
-	splitted := strings.Split(s, delimiter)
-	for _, v := range splitted {
-		splittedParam := strings.FieldsFunc(v, func(r rune) bool {
-			return strings.Index(otherDelims, string(r)) != -1
-		})
-		res = append(res, splittedParam...)
-	}
-
-	fmt.Println(s)
-	for _, v := range res {
-		fmt.Println(v)
-	}
-
-	log.Fatal("RIP")
-
-	return res
-}
-
 func urlDecode(input string, req *RequestMessage) string {
 	res, err := url.QueryUnescape(input)
 	if err != nil {
@@ -70,20 +42,6 @@ func urlDecode(input string, req *RequestMessage) string {
 	}
 
 	return res
-}
-
-func getUrlEncodedAudioUrl(body string) string {
-	indexOfJson := strings.Index(body, jsonVariableForUrls)
-	substr := body[indexOfJson+len(jsonVariableForUrls)+1:]
-	var res strings.Builder
-	for _, v := range substr {
-		if v == '"' {
-			return res.String()
-		}
-		res.WriteRune(v)
-	}
-
-	return res.String()
 }
 
 func getHttpContent(req *RequestMessage) string {
