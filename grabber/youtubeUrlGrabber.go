@@ -12,20 +12,18 @@ const (
 	jsonVariableForUrls = "\"adaptive_fmts\":"
 	delimiter           = "\\u0026"
 	otherDelims         = ";,"
-	formatsDelim        = "bitrate"
 )
 
 type DownloadGrabber interface {
-	GetAudioDownloadUrl(url string) (AudioStream, error)
+	GetStreamData(url string) (*StreamData, error)
 }
 
 type YoutubeDownloadGrabber struct {
-	StreamData *StreamData
 }
 
 type StreamData struct {
-	muxedStreams    string
-	adaptiveFormats AdaptiveFormats
+	MuxedStreams    string
+	AdaptiveFormats AdaptiveFormats
 }
 
 type AdaptiveFormats struct {
@@ -34,42 +32,42 @@ type AdaptiveFormats struct {
 }
 
 type StreamBase struct {
-	bitrate         uint
-	itag            uint
-	clen            uint
-	init            string
-	ctype           string
-	codecs          string
-	lmt             uint
-	url             string
-	index           string
-	projection_type uint
-	xtags           string
-	signature       string
+	Bitrate         uint
+	Itag            uint
+	Clen            uint
+	Init            string
+	Ctype           string
+	Codecs          string
+	Lmt             uint
+	Url             string
+	Index           string
+	Projection_type uint
+	Xtags           string
+	Signature       string
 }
 
 type VideoStream struct {
-	base          StreamBase
-	quality_label string
-	eotf          string
-	size          string
-	fps           uint
+	Base          StreamBase
+	Quality_label string
+	Eotf          string
+	Size          string
+	Fps           uint
 }
 
 type AudioStream struct {
-	base              StreamBase
-	audio_channels    uint
-	audio_sample_rate uint
+	Base              StreamBase
+	Audio_channels    uint
+	Audio_sample_rate uint
 }
 
-func (downloadGrabber *YoutubeDownloadGrabber) GetDownloadUrl(url string) (AudioStream, error) {
+func (downloadGrabber *YoutubeDownloadGrabber) GetStreamData(url string) (*StreamData, error) {
 	adaptiveFormats, err := extractAdaptiveFormats(url)
 	if err != nil {
-		return AudioStream{}, err
+		return nil, err
 	}
 	streamData := extractStreamDataFromAdaptiveFormats(adaptiveFormats)
-	downloadGrabber.StreamData = streamData
-	return streamData.adaptiveFormats.AudioStreams[0], nil
+
+	return streamData, nil
 }
 
 func extractAdaptiveFormats(videoUrl string) (string, error) {
@@ -123,7 +121,8 @@ func getVideoPage(url string) (string, error) {
 
 func extractStreamDataFromAdaptiveFormats(adaptiveFormats string) *StreamData {
 	splittedFormats := splitAdaptiveFormats(adaptiveFormats)
-	groupedFormats := groupAdaptiveFormats(splittedFormats)
+	trimedFormats := trimStrings(splittedFormats...)
+	groupedFormats := groupAdaptiveFormats(trimedFormats)
 	return createStreamDataFromGroupedFormats(groupedFormats)
 }
 
@@ -141,10 +140,12 @@ func splitAdaptiveFormats(s string) []string {
 }
 
 func groupAdaptiveFormats(splittedFormats []string) []map[string]string {
+	//elements order is randomized every time, so we peek first element to get delimeter
+	formatsDelim := strings.Split(splittedFormats[0], "=")[0]
 	res := make([]map[string]string, 0)
-	var cur map[string]string
+	cur := make(map[string]string)
 	for _, v := range splittedFormats {
-		pair := strings.Split(v, "=")
+		pair := strings.SplitN(v, "=", 2)
 		if pair[0] == formatsDelim {
 			if len(cur) > 0 {
 				res = append(res, cur)
@@ -162,7 +163,7 @@ func groupAdaptiveFormats(splittedFormats []string) []map[string]string {
 }
 
 func createStreamDataFromGroupedFormats(data []map[string]string) *StreamData {
-	videoStreams, audioStreams := make([]VideoStream, 4), make([]AudioStream, 4)
+	videoStreams, audioStreams := make([]VideoStream, 0, 4), make([]AudioStream, 0, 4)
 	for _, v := range data {
 		res := parseStreamFromDataMap(v)
 		switch res.(type) {
@@ -171,10 +172,11 @@ func createStreamDataFromGroupedFormats(data []map[string]string) *StreamData {
 			break
 		case AudioStream:
 			audioStreams = append(audioStreams, res.(AudioStream))
+			break
 		}
 	}
 
-	return &StreamData{adaptiveFormats: AdaptiveFormats{VideoStreams: videoStreams, AudioStreams: audioStreams}}
+	return &StreamData{AdaptiveFormats: AdaptiveFormats{VideoStreams: videoStreams, AudioStreams: audioStreams}}
 }
 
 func parseStreamFromDataMap(data map[string]string) interface{} {
@@ -183,7 +185,7 @@ func parseStreamFromDataMap(data map[string]string) interface{} {
 	clen, _ := strconv.ParseUint(data["clen"], 10, 32)
 	init := data["init"]
 	ctype := data["type"]
-	codecs := data["codecs"]
+	codecs := data[" codecs"]
 	lmt, _ := strconv.ParseUint(data["lmt"], 10, 32)
 	url := data["url"]
 	index := data["index"]
@@ -191,23 +193,23 @@ func parseStreamFromDataMap(data map[string]string) interface{} {
 	xtags := data["xtags"]
 	signature := data["s"]
 	base := StreamBase{
-		bitrate:         uint(bitrate),
-		itag:            uint(itag),
-		clen:            uint(clen),
-		init:            init,
-		ctype:           ctype,
-		codecs:          codecs,
-		lmt:             uint(lmt),
-		url:             url,
-		index:           index,
-		projection_type: uint(projection_type),
-		xtags:           xtags,
-		signature:       signature}
-	if size, err := data["size"]; !err {
+		Bitrate:         uint(bitrate),
+		Itag:            uint(itag),
+		Clen:            uint(clen),
+		Init:            init,
+		Ctype:           ctype,
+		Codecs:          codecs,
+		Lmt:             uint(lmt),
+		Url:             url,
+		Index:           index,
+		Projection_type: uint(projection_type),
+		Xtags:           xtags,
+		Signature:       signature}
+	if strings.Index(ctype, "video") != -1 {
 		fps, _ := strconv.ParseUint(data["fps"], 10, 32)
-		return VideoStream{base: base, fps: uint(fps), quality_label: data["quality_label"], size: size, eotf: data["eotf"]}
+		return VideoStream{Base: base, Fps: uint(fps), Quality_label: data["quality_label"], Size: data["size"], Eotf: data["eotf"]}
 	}
 	chans, _ := strconv.ParseUint(data["audio_channels"], 10, 32)
 	rate, _ := strconv.ParseUint(data["audio_sample_rate"], 10, 32)
-	return AudioStream{base: base, audio_channels: uint(chans), audio_sample_rate: uint(rate)}
+	return AudioStream{Base: base, Audio_channels: uint(chans), Audio_sample_rate: uint(rate)}
 }

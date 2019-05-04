@@ -10,6 +10,9 @@ const videoUrl = "https://www.youtube.com/watch?v=GAhiW1Z3GJY"
 
 func main() {
 	grabber := grabber.YoutubeDownloadGrabber{}
-	stream := grabber.GetDownloadUrl(videoUrl)
-	fmt.Printf("%v\n", stream)
+	stream, err := grabber.GetStreamData(videoUrl)
+	if err != nil {
+		fmt.Println("Error is not nil!!! Not nil!!!")
+	}
+	fmt.Printf("%q\n", stream)
 }
