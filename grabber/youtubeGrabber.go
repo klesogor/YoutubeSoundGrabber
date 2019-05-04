@@ -55,7 +55,7 @@ func NewHandler(workers int) YoutubeGrabber {
 
 func runWorker(in <-chan RequestMessage) {
 	for {
-		message := <-in
+		/*message := <-in
 		extractVideoIdFromUrl(&message)
 		if message.hasError {
 			continue
@@ -70,7 +70,7 @@ func runWorker(in <-chan RequestMessage) {
 			continue
 		}
 		convertToMp3(&message)
-		message.handler.FileHandler(ResponseFileMessage{FilePath: message.cachedAudioPath, VideoId: message.videoId})
+		message.handler.FileHandler(ResponseFileMessage{FilePath: message.cachedAudioPath, VideoId: message.videoId})*/
 	}
 }
 
