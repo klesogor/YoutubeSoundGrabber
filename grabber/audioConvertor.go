@@ -6,7 +6,7 @@ import (
 	"os/exec"
 )
 
-func convertToMp3(name, path string) string {
+func ConvertToMp3(name, path string) string {
 	filePath := filepath + name + fileExtTarget
 	convertAndSave(filePath, path)
 	removeFile(path)
