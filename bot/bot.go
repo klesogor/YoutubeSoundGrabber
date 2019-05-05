@@ -9,7 +9,12 @@ import (
 
 const processMessage = "Your request have been added to process queue. Please be patient, while we converting your audio..."
 
-func RunBot(token string, youtubeGrabber grabber.YoutubeGrabber) {
+type TelegramContext struct {
+	chatId    int64
+	messageId int
+}
+
+func RunBot(token string, youtubeGrabber grabber.SimpleYoutubeGrabber) {
 	bot, err := tgbotapi.NewBotAPI(token)
 	if err != nil {
 		log.Panic(err)
@@ -24,6 +29,8 @@ func RunBot(token string, youtubeGrabber grabber.YoutubeGrabber) {
 
 	updates, err := bot.GetUpdatesChan(u)
 
+	go startHandlers(youtubeGrabber, bot)
+
 	for update := range updates {
 		if update.Message == nil {
 			continue
@@ -36,27 +43,23 @@ func RunBot(token string, youtubeGrabber grabber.YoutubeGrabber) {
 		msg.ReplyToMessageID = messageId
 		bot.Send(msg)
 
-		messageHandler, fileHandler := createMesageHandler(chatId, messageId, bot), createFileHandler(chatId, messageId, bot)
-		handlers := grabber.Handlers{MessageHandler: messageHandler, FileHandler: fileHandler}
-
-		youtubeGrabber.Handle(update.Message.Text, handlers)
+		youtubeGrabber.Handle(update.Message.Text, TelegramContext{chatId: chatId, messageId: messageId})
 	}
 }
 
-func createMesageHandler(chatId int64, messageId int, bot *tgbotapi.BotAPI) grabber.MessageHandler {
-	return func(mes grabber.ResponseMessage) {
-		msg := tgbotapi.NewMessage(chatId, mes.Err.Error())
-		msg.ReplyToMessageID = messageId
-
-		bot.Send(msg)
-	}
-}
-
-func createFileHandler(chatId int64, messageId int, bot *tgbotapi.BotAPI) grabber.FileMessageHandler {
-	return func(mes grabber.ResponseFileMessage) {
-		msg := tgbotapi.NewAudioUpload(chatId, mes.FilePath)
-		msg.ReplyToMessageID = messageId
-
-		bot.Send(msg)
+func startHandlers(ygrabber grabber.SimpleYoutubeGrabber, bot *tgbotapi.BotAPI) {
+	for {
+		select {
+		case r := <-ygrabber.FanOut:
+			context := r.Context.(TelegramContext)
+			msg := tgbotapi.NewAudioUpload(context.chatId, r.AudioPath)
+			msg.ReplyToMessageID = context.messageId
+			bot.Send(msg)
+		case e := <-ygrabber.Err:
+			context := e.Context.(TelegramContext)
+			msg := tgbotapi.NewMessage(context.chatId, e.Error.Error())
+			msg.ReplyToMessageID = context.messageId
+			bot.Send(msg)
+		}
 	}
 }

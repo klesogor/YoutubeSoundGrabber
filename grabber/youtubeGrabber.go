@@ -1,80 +1,76 @@
-package grabber
+package grabber;
 
-import "fmt"
-
-type MessageHandler func(ResponseMessage)
-type FileMessageHandler func(ResponseFileMessage)
+import (
+	"net/url"
+)
 
 type YoutubeGrabber interface {
-	Handle(url string, handlers Handlers)
-}
-
-type ResponseMessage struct {
-	Message string
-	Err     error
-}
-
-type Handlers struct {
-	MessageHandler MessageHandler
-	FileHandler    FileMessageHandler
+	Handle(videoUrl string, context interface{})
 }
 
 type SimpleYoutubeGrabber struct {
-	fanIn chan<- RequestMessage
+	FanIn chan RequestMessage
+	FanOut chan ResponseFileMessage
+	Err chan ResponseErrorMessage
+}
+
+type ResponseErrorMessage struct {
+	Context interface{}
+	Error error 
 }
 
 type ResponseFileMessage struct {
-	FilePath string
-	VideoId  string
+	Context interface{}
+	AudioPath string
 }
 
 type RequestMessage struct {
-	videoUrl         string
-	videoId          string
-	audioDownloadUrl string
-	tempAudioPath    string
-	cachedAudioPath  string
-	hasError         bool
-	handler          Handlers
+	VideoUrl string
+	VideoId  string
+	Context  interface{}
 }
 
-func (mes *RequestMessage) handleError(err error) {
-	mes.hasError = true
-	fmt.Println(err.Error())
-	go mes.handler.MessageHandler(ResponseMessage{Message: "error ocured", Err: err})
-}
-
-func NewHandler(workers int) YoutubeGrabber {
+func NewHandler(workers int) SimpleYoutubeGrabber {
 	com := make(chan RequestMessage, workers*2)
+	resp := make(chan ResponseFileMessage, workers*2)
+	err := make(chan ResponseErrorMessage, workers*2)
 	for i := 0; i < workers; i++ {
-		go runWorker(com)
+		go runWorker(com,resp,err)
 	}
 
-	return SimpleYoutubeGrabber{fanIn: com}
+	return SimpleYoutubeGrabber{FanIn: com, FanOut: resp, Err: err}
 }
 
-func runWorker(in <-chan RequestMessage) {
+func runWorker(in <-chan RequestMessage, out chan<- ResponseFileMessage, Err chan<- ResponseErrorMessage) {
+	Grabber := YoutubeDownloadGrabber{}
+	downloader := YoutubeSegmentedAudioDownloader{DownloadLimit: 20, DownloadRangeLimit: 98989}
 	for {
-		/*message := <-in
-		extractVideoIdFromUrl(&message)
-		if message.hasError {
-			continue
+		mes := <-in
+		stream, err := Grabber.GetStreamData(mes.VideoUrl)
+		if err != nil {
+			Err <- ResponseErrorMessage{Context: mes.Context,Error: err}
 		}
-		grabDownloadUrl(&message)
-		if message.hasError {
-			continue
+		var astream AudioStream
+		for _, v := range stream.AdaptiveFormats.AudioStreams {
+			if v.Base.Ctype == "audio/webm" {
+				astream = v
+				break
+			}
 		}
-		fmt.Printf("%v\n", message)
-		extractToFile(&message)
-		if message.hasError {
-			continue
+		path, err := downloader.DownloadAudioByStream(&astream, mes.VideoId)
+		if err != nil {
+			Err <- ResponseErrorMessage{Context: mes.Context,Error: err}
 		}
-		convertToMp3(&message)
-		message.handler.FileHandler(ResponseFileMessage{FilePath: message.cachedAudioPath, VideoId: message.videoId})*/
+		finalPath := ConvertToMp3(mes.VideoId, path)
+		out<- ResponseFileMessage{Context: mes.Context,AudioPath: finalPath}
 	}
 }
 
-func (grabber SimpleYoutubeGrabber) Handle(url string, handler Handlers) {
-	mes := RequestMessage{videoUrl: url, handler: handler}
-	grabber.fanIn <- mes
+func (grabber SimpleYoutubeGrabber) Handle(videoUrl string, context interface{}) {
+	params, err := url.ParseQuery(videoUrl)
+	if err != nil{
+		grabber.Err<- ResponseErrorMessage{Context: context, Error: err}
+	}
+	mes := RequestMessage{VideoUrl: videoUrl,VideoId: params.Get("v"), Context: context}
+	grabber.FanIn <- mes
 }
