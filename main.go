@@ -2,12 +2,11 @@ package main
 
 import (
 	"fmt"
-	"net/url"
 
 	"github.com/klesogor/youtube-grabber/grabber"
 )
 
-const videoUrl = "https://www.youtube.com/watch?v=GAhiW1Z3GJY"
+const videoUrl = "https://www.youtube.com/watch?v=BUWuDdfe7v4"
 
 func main() {
 	Grabber := grabber.YoutubeDownloadGrabber{}
@@ -15,7 +14,6 @@ func main() {
 	if err != nil {
 		fmt.Println("Error is not nil!!! Not nil!!!")
 	}
-	url, _ := url.ParseQuery(videoUrl)
 	downloader := grabber.YoutubeSegmentedAudioDownloader{DownloadLimit: 20, DownloadRangeLimit: 98989}
 	var astream grabber.AudioStream
 	for _, v := range stream.AdaptiveFormats.AudioStreams {
@@ -24,7 +22,7 @@ func main() {
 			break
 		}
 	}
-	path := downloader.DownloadAudioByStream(&astream, url.Get("v"))
-	finalPath := grabber.ConvertToMp3(url.Get("v"), path)
+	path := downloader.DownloadAudioByStream(&astream, "GAhiW1Z3GJY")
+	finalPath := grabber.ConvertToMp3("GAhiW1Z3GJY", path)
 	fmt.Printf("%v\n", finalPath)
 }
