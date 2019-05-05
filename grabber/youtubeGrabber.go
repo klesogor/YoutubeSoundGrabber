@@ -67,10 +67,10 @@ func runWorker(in <-chan RequestMessage, out chan<- ResponseFileMessage, Err cha
 }
 
 func (grabber SimpleYoutubeGrabber) Handle(videoUrl string, context interface{}) {
-	params, err := url.ParseQuery(videoUrl)
+	parsedUrl, err := url.Parse(videoUrl)
 	if err != nil{
 		grabber.Err<- ResponseErrorMessage{Context: context, Error: err}
 	}
-	mes := RequestMessage{VideoUrl: videoUrl,VideoId: params.Get("v"), Context: context}
+	mes := RequestMessage{VideoUrl: videoUrl,VideoId:parsedUrl.Query().Get("v"), Context: context}
 	grabber.FanIn <- mes
 }
