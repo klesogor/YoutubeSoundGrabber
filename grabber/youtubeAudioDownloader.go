@@ -31,12 +31,17 @@ type dataSegment struct {
 
 func (downloader *YoutubeSegmentedAudioDownloader) DownloadAudioByStream(stream *AudioStream, name string) string {
 	var wg sync.WaitGroup
+	var dec YoutubeDechiper
+	url := stream.Base.Url
+	if stream.Base.Signature != "" {
+		url += "&signature=" + dec.Decrypt(stream.Base.Signature)
+	}
 	totalDownloadsRequired := stream.Base.Clen/downloader.DownloadRangeLimit + 1
 	acc, i, start, totalData, size := make([][]byte, totalDownloadsRequired), 0, 0, int(stream.Base.Clen), int(downloader.DownloadRangeLimit)
 	for totalData > 0 {
 		wg.Add(1)
 		go func(offset, start, size int) {
-			urlWithRange := stream.Base.Url + "&range=" + strconv.Itoa(start) + "-" + strconv.Itoa(start+size)
+			urlWithRange := url + "&range=" + strconv.Itoa(start) + "-" + strconv.Itoa(start+size)
 			fmt.Printf("range: %d-%d\n", start, start+size)
 			response, _ := http.Get(urlWithRange)
 			res, _ := ioutil.ReadAll(response.Body)

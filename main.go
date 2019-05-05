@@ -6,7 +6,7 @@ import (
 	"github.com/klesogor/youtube-grabber/grabber"
 )
 
-const videoUrl = "https://www.youtube.com/watch?v=BUWuDdfe7v4"
+const videoUrl = "https://www.youtube.com/watch?v=cXEZu-uIdeI"
 
 func main() {
 	Grabber := grabber.YoutubeDownloadGrabber{}
@@ -22,7 +22,7 @@ func main() {
 			break
 		}
 	}
-	path := downloader.DownloadAudioByStream(&astream, "GAhiW1Z3GJY")
-	finalPath := grabber.ConvertToMp3("GAhiW1Z3GJY", path)
+	path := downloader.DownloadAudioByStream(&astream, "cXEZu-uIdeI")
+	finalPath := grabber.ConvertToMp3("cXEZu-uIdeI", path)
 	fmt.Printf("%v\n", finalPath)
 }
