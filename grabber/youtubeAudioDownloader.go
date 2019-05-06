@@ -1,6 +1,7 @@
 package grabber
 
 import (
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -29,26 +30,47 @@ type dataSegment struct {
 	data   []byte
 }
 
-func (downloader *YoutubeSegmentedAudioDownloader) DownloadAudioByStream(stream *AudioStream, name string) (string, error) {
-	var wg sync.WaitGroup
+func (downloader *YoutubeSegmentedAudioDownloader) DownloadAudioByStream(stream *AudioStream, name string, retries int) (string, error) {
 	var dec YoutubeDechiper
 	url := stream.Base.Url
 	if stream.Base.Signature != "" {
 		url += "&signature=" + dec.Decrypt(stream.Base.Signature)
 	}
-	totalDownloadsRequired := stream.Base.Clen/downloader.DownloadRangeLimit + 1
-	acc, i, start, totalData, size := make([][]byte, totalDownloadsRequired), 0, 0, int(stream.Base.Clen), int(downloader.DownloadRangeLimit)
+
+	fmt.Printf("Downloading from base url:%v\n", url)
+	success := false
+	var acc [][]byte
+	var err error
+	for i := 0; i < retries; i++ {
+		acc, err = tryDownload(stream, url, downloader.DownloadRangeLimit)
+		if err == nil {
+			success = true
+			break
+		}
+	}
+	if !success {
+		return "", errors.New("Unable to download file!")
+	}
+
+	return writeToFile(acc, name)
+}
+
+func tryDownload(stream *AudioStream, url string, downloadRange uint) ([][]byte, error) {
+	var wg sync.WaitGroup
+	totalDownloadsRequired := stream.Base.Clen/downloadRange + 1
+	acc, i, start, totalData, size := make([][]byte, totalDownloadsRequired), 0, 0, int(stream.Base.Clen), int(downloadRange)
 	var downloadErr error
 	for totalData > 0 {
 		wg.Add(1)
 		go func(offset, start, size int) {
 			urlWithRange := url + "&range=" + strconv.Itoa(start) + "-" + strconv.Itoa(start+size)
-			fmt.Printf("range: %d-%d\n", start, start+size)
 			response, err := http.Get(urlWithRange)
 			if err != nil {
 				downloadErr = err
 				wg.Done()
 				return
+			}
+			if response.StatusCode != 200 {
 			}
 			res, _ := ioutil.ReadAll(response.Body)
 			acc[offset] = res
@@ -60,9 +82,10 @@ func (downloader *YoutubeSegmentedAudioDownloader) DownloadAudioByStream(stream 
 	}
 	wg.Wait()
 	if downloadErr != nil {
-		return "", downloadErr
+		return nil, downloadErr
 	}
-	return writeToFile(acc, name)
+
+	return acc, nil
 }
 
 func writeToFile(arr [][]byte, fileName string) (string, error) {

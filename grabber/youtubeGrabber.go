@@ -57,7 +57,7 @@ func runWorker(in <-chan RequestMessage, out chan<- ResponseFileMessage, Err cha
 				break
 			}
 		}
-		path, err := downloader.DownloadAudioByStream(&astream, mes.VideoId)
+		path, err := downloader.DownloadAudioByStream(&astream, mes.VideoId, 5)
 		if err != nil {
 			Err <- ResponseErrorMessage{Context: mes.Context,Error: err}
 		}
