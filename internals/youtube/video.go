@@ -1,11 +1,8 @@
 package youtube
 
-const urlSignatureKey = "signature"
+import "errors"
 
-type bitrateable interface {
-	getBitrate() int
-	getStreamBase() *streamBase
-}
+const urlSignatureKey = "signature"
 
 type youtubeVideo struct {
 	id         string
@@ -60,16 +57,36 @@ func (sb *streamBase) mustDecryptSignature() bool {
 
 func (sb *streamBase) decryptSignature(decryptor signatureDecryptor) {
 	sb.url += urlSignatureKey + "=" + decryptor.decryptSignature(sb.signature)
+	sb.isDecrypted = true
 }
 
-func (sb *streamBase) getBitrate() int {
-	return sb.bitrate
+func (sb streamBase) getContentLength() int {
+	return sb.clen
 }
 
-func (v *youtubeVideo) getBestQualityAudioStream() (*audioStream, error) {
+func (sb streamBase) getContentType() string {
+	return sb.ctype
+}
+
+func (sb streamBase) getDownloadUrl() (string, error) {
+	if sb.mustDecryptSignature() {
+		return "", errors.New("Video signature must be decrypted first!")
+	}
+	return sb.url, nil
+}
+
+func (v *youtubeVideo) getBestQualityAudioStream() (downloadable, error) {
 	audioStreams := v.streamData.adaptiveFormats.audioStreams
+	var res downloadable
+	var maxBitRate int
 	if audioStreams != nil && len(audioStreams) > 0 {
-
+		for _, v := range audioStreams {
+			if v.bitrate > maxBitRate {
+				maxBitRate = v.bitrate
+				res = v
+			}
+		}
+		return res, nil
 	}
 	return nil, nil
 }
