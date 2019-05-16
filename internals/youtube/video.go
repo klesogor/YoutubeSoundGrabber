@@ -4,9 +4,9 @@ import "errors"
 
 const urlSignatureKey = "signature"
 
-type youtubeVideo struct {
-	id         string
-	title      string
+type YoutubeVideo struct {
+	Id         string
+	Title      string
 	streamData streamData
 	body       string
 }
