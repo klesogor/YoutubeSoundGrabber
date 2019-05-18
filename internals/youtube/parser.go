@@ -5,6 +5,9 @@ import (
 	"errors"
 	"io/ioutil"
 	"net/http"
+	"net/url"
+	"sort"
+	"strconv"
 	"strings"
 )
 
@@ -14,7 +17,7 @@ type StreamData struct {
 	Ctype     string
 	Signature string
 	Bitrate   int
-	data      []byte
+	Data      []byte
 }
 
 func (s StreamData) GetDownloadUrl() string {
@@ -27,6 +30,14 @@ func (s StreamData) GetDownloadUrl() string {
 
 func (s StreamData) GetContentLengh() int {
 	return s.Clen
+}
+
+func (s StreamData) GetContentType() string {
+	return s.Ctype
+}
+
+func (s StreamData) GetData() []byte {
+	return s.Data
 }
 
 type PlayerConfig struct {
@@ -91,7 +102,75 @@ type PlayerConfig struct {
 	Attrs struct {
 		ID string `json:"id"`
 	} `json:"attrs"`
-	Sts int `json:"sts"`
+	Sts        int `json:"sts"`
+	streamData []StreamData
+}
+
+func (c *PlayerConfig) GetBestAudioStream() (StreamData, error) {
+	if c.streamData == nil {
+		data, err := c.parseStreamData()
+		if err != nil {
+			return StreamData{}, err
+		}
+		c.streamData = data
+	}
+	sort.Slice(c.streamData, func(i, j int) bool {
+		return getAudioScore(c.streamData[i]) > getAudioScore(c.streamData[j])
+	})
+
+	return c.streamData[0], nil
+}
+
+func getAudioScore(stream StreamData) int {
+	audioBonus := 0
+	if strings.Index(stream.Ctype, "audio") != -1 {
+		audioBonus = 1000
+	}
+	return stream.Bitrate + audioBonus
+}
+
+func (c *PlayerConfig) parseStreamData() ([]StreamData, error) {
+	decoded, err := url.QueryUnescape(c.Args.AdaptiveFmts)
+	if err != nil {
+		return nil, err
+	}
+	splitted := strings.Split(decoded, ",")
+	res := make([]StreamData, 0, 1)
+	for _, v := range splitted {
+		parsed, err := url.ParseQuery(v)
+		if err != nil {
+			return nil, err
+		}
+		res = append(res, StreamData{
+			Clen:      getIntOrDefault(parsed, "clen"),
+			Bitrate:   getIntOrDefault(parsed, "bitrate"),
+			Signature: parsed.Get("signature"),
+			Ctype:     parsed.Get("type")})
+	}
+
+	return res, nil
+}
+
+func getIntOrDefault(a url.Values, k string) int {
+	val := a.Get(k)
+	res, err := strconv.Atoi(val)
+	if err != nil {
+		return 0
+	}
+
+	return res
+}
+
+func GetPlayerConfig(url string) (*PlayerConfig, error) {
+	res, err := http.Get(url)
+	if err != nil {
+		return nil, err
+	}
+	body, err := parseBody(res)
+	if err != nil {
+		return nil, err
+	}
+	return parseVideoForomHttpResponse(body)
 }
 
 func parseVideoForomHttpResponse(body []byte) (*PlayerConfig, error) {
