@@ -17,9 +17,6 @@ func (d downloadMock) GetDownloadUrl() string {
 func (d downloadMock) GetContentLengh() int {
 	return len(mockData)
 }
-func (d downloadMock) GetContentType() string {
-	return ""
-}
 
 func mockDownloaderSuccess(url string, start, end int) ([]byte, error) {
 	end++

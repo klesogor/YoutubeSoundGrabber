@@ -9,7 +9,6 @@ import (
 type SegmentDownloadable interface {
 	GetDownloadUrl() string
 	GetContentLengh() int
-	GetContentType() string
 }
 
 type SegmentedDownloadConfig struct {
