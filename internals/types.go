@@ -1,18 +1,5 @@
 package internals
 
-type VideoRequest struct {
-	VideoUrl string
-	VideoId  string
-	Context  interface{}
-}
-
-type AudioResponse struct {
-	VideoId   string
-	AudioName string
-	Data      []byte
-	Context   interface{}
-}
-
 type ErrorResponse struct {
 	VideoId string
 	Error   error
