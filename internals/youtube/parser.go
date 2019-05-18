@@ -1,12 +1,21 @@
 package youtube
 
 import (
+	"encoding/json"
 	"errors"
 	"io/ioutil"
 	"net/http"
+	"strings"
 )
 
-type playerConfig struct {
+type StreamData struct {
+	clen      int
+	ctype     string
+	signature string
+	bitrate   int
+}
+
+type PlayerConfig struct {
 	Assets struct {
 		CSS string `json:"css"`
 		Js  string `json:"js"`
@@ -71,12 +80,15 @@ type playerConfig struct {
 	Sts int `json:"sts"`
 }
 
-func ParseVideoForomHttpResponse(resp *http.Response) (*YoutubeVideo, error) {
-	body, err := parseBody(resp)
+func parseVideoForomHttpResponse(body []byte) (*PlayerConfig, error) {
+	bodyString := string(body)
+	configJson, err := getConfig(bodyString)
 	if err != nil {
 		return nil, err
 	}
-
+	var config PlayerConfig
+	err = json.Unmarshal([]byte(configJson), &config)
+	return &config, err
 }
 
 func parseBody(resp *http.Response) ([]byte, error) {
@@ -84,4 +96,48 @@ func parseBody(resp *http.Response) ([]byte, error) {
 		return nil, errors.New("Not 2xx http status!")
 	}
 	return ioutil.ReadAll(resp.Body)
+}
+
+func extractJsonFromString(s string) (string, error) {
+	curl, arr := 0, 0
+	var res strings.Builder
+	index := strings.Index(s, "{")
+	if index == -1 {
+		return "", errors.New("No opening tag found")
+	}
+	for _, v := range s[index:] {
+		res.WriteRune(v)
+		switch v {
+		case '{':
+			curl++
+		case '[':
+			arr++
+		case ']':
+			arr--
+		case '}':
+			curl--
+			if arr == 0 && curl == 0 {
+				return res.String(), nil
+			}
+		}
+	}
+
+	return "", errors.New("No json found in string")
+}
+
+func getConfig(body string) (string, error) {
+	return getBetween(body, "ytplayer.config=", ";ytplayer.load=")
+}
+
+func getBetween(s, start, end string) (string, error) {
+	offsetStart, lenS := strings.Index(s, start), len(start)
+	if offsetStart == -1 {
+		return "", errors.New("No substring match in string")
+	}
+	offsetEnd := strings.Index(s[offsetStart+lenS:], end)
+	if offsetEnd == -1 {
+		return "", errors.New("No substring match in string")
+	}
+
+	return s[offsetStart+lenS : offsetStart+lenS+offsetEnd], nil
 }
