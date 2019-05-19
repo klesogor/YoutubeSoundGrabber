@@ -26,10 +26,11 @@ type Converter interface {
 type FFMPEGConverter struct{}
 
 func (f *FFMPEGConverter) Convert(c Convertable, settings ConvertingSettings) ([]byte, error) {
-	options := []string{"-stdin", "pipe:1", "-acodec", formatToExt(ctypeToFormat(c.GetContentType()))}
+	options := []string{"-stdin", "-f", formatToExt(ctypeToFormat(c.GetContentType())), "-i", "-"}
 	if !settings.PreserveVideo {
 		options = append(options, "-nv")
 	}
+	options = append(options, "-f", formatToExt(settings.TargetFormat), "pipe:1")
 
 	cmd := exec.Command("ffmpeg", options...)
 	cmd.Stdin = bytes.NewReader(c.GetData())

@@ -9,7 +9,24 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+
+	"github.com/klesogor/youtube-grabber/internals"
 )
+
+func (player *PlayerConfig) DownloadAudio() (StreamData, error) {
+	audio, err := player.getBestAudioStream()
+	if err != nil {
+		return StreamData{}, err
+	}
+	res, err := internals.DownloadSegmented(audio, internals.SegmentedDownloadConfig{ChunkSize: 989898, ConcurrencyLimit: 10}, Downloader)
+	if err != nil {
+		return StreamData{}, err
+	}
+
+	audio.data = res
+
+	return audio, nil
+}
 
 type StreamData struct {
 	Clen      int
@@ -17,7 +34,7 @@ type StreamData struct {
 	Ctype     string
 	Signature string
 	Bitrate   int
-	Data      []byte
+	data      []byte
 }
 
 func (s StreamData) GetDownloadUrl() string {
@@ -37,7 +54,7 @@ func (s StreamData) GetContentType() string {
 }
 
 func (s StreamData) GetData() []byte {
-	return s.Data
+	return s.data
 }
 
 type PlayerConfig struct {
@@ -106,7 +123,7 @@ type PlayerConfig struct {
 	streamData []StreamData
 }
 
-func (c *PlayerConfig) GetBestAudioStream() (StreamData, error) {
+func (c *PlayerConfig) getBestAudioStream() (StreamData, error) {
 	if c.streamData == nil {
 		data, err := c.parseStreamData()
 		if err != nil {

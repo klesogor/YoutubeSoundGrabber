@@ -2,7 +2,6 @@ package internals
 
 import (
 	"context"
-	"fmt"
 	"sync"
 
 	"golang.org/x/sync/semaphore"
@@ -39,19 +38,16 @@ func DownloadSegmented(download SegmentDownloadable, config SegmentedDownloadCon
 		sem.Acquire(ctx, 1)
 		go func(offset int) {
 			start := offset*chunkSize + offset
-			fmt.Printf("Aquired sem, range: %d-%d\n", start, start+chunkSize)
 			res, downloadError := handler(url, start, start+chunkSize)
 			if downloadError != nil {
 				err = downloadError
 				wg.Done()
 				sem.Release(1)
-				fmt.Printf("Released 1 concurency due to error, range: %d-%d\n", start, start+chunkSize)
 				return
 			}
 			buffer[offset] = res
 			wg.Done()
 			sem.Release(1)
-			fmt.Printf("Released 1 concurency due to success, range: %d-%d\n", start, start+chunkSize)
 		}(i)
 	}
 	wg.Wait()
