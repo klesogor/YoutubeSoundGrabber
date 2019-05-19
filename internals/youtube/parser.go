@@ -124,35 +124,40 @@ func (c *PlayerConfig) GetBestAudioStream() (StreamData, error) {
 func getAudioScore(stream StreamData) int {
 	audioBonus := 0
 	if strings.Index(stream.Ctype, "audio") != -1 {
-		audioBonus = 1000
+		audioBonus = 10000000
 	}
 	return stream.Bitrate + audioBonus
 }
 
 func (c *PlayerConfig) parseStreamData() ([]StreamData, error) {
-	decoded, err := url.QueryUnescape(c.Args.AdaptiveFmts)
-	if err != nil {
-		return nil, err
-	}
-	splitted := strings.Split(decoded, ",")
+	splitted := strings.Split(c.Args.AdaptiveFmts, ",")
 	res := make([]StreamData, 0, 1)
 	for _, v := range splitted {
-		parsed, err := url.ParseQuery(v)
-		if err != nil {
-			return nil, err
-		}
-		res = append(res, StreamData{
-			Clen:      getIntOrDefault(parsed, "clen"),
-			Bitrate:   getIntOrDefault(parsed, "bitrate"),
-			Signature: parsed.Get("signature"),
-			Ctype:     parsed.Get("type")})
+		res = append(res, parseStreamDataFromUrlString(v))
 	}
-
 	return res, nil
 }
 
-func getIntOrDefault(a url.Values, k string) int {
-	val := a.Get(k)
+func parseStreamDataFromUrlString(s string) StreamData {
+	res := make(map[string]string)
+	splitted := strings.Split(s, "\u0026")
+	for _, v := range splitted {
+		pair := strings.SplitN(v, "=", 2)
+		if len(pair) >= 2 {
+			res[pair[0]] = pair[1]
+		}
+	}
+	decodedUrl, _ := url.QueryUnescape(res["url"])
+
+	return StreamData{
+		Clen:      getIntOrDefault(res["clen"]),
+		Bitrate:   getIntOrDefault(res["bitrate"]),
+		Signature: res["signature"],
+		Url:       decodedUrl,
+		Ctype:     res["type"]}
+}
+
+func getIntOrDefault(val string) int {
 	res, err := strconv.Atoi(val)
 	if err != nil {
 		return 0
@@ -219,7 +224,7 @@ func extractJsonFromString(s string) (string, error) {
 }
 
 func getConfig(body string) (string, error) {
-	return getBetween(body, "ytplayer.config=", ";ytplayer.load=")
+	return getBetween(body, "ytplayer.config = ", ";ytplayer.load")
 }
 
 func getBetween(s, start, end string) (string, error) {

@@ -19,6 +19,9 @@ func (d downloadMock) GetContentLengh() int {
 }
 
 func mockDownloaderSuccess(url string, start, end int) ([]byte, error) {
+	if start > len(mockData) {
+		return make([]byte, 0), nil
+	}
 	end++
 	if end > len(mockData) {
 		end = len(mockData)
