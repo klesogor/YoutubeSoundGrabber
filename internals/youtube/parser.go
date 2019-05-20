@@ -2,12 +2,9 @@ package youtube
 
 import (
 	"encoding/json"
-	"errors"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"sort"
-	"strconv"
 	"strings"
 
 	"github.com/klesogor/youtube-grabber/internals"
@@ -125,7 +122,7 @@ type PlayerConfig struct {
 
 func (c *PlayerConfig) getBestAudioStream() (StreamData, error) {
 	if c.streamData == nil {
-		data, err := c.parseStreamData()
+		data, err := c.getStreamData()
 		if err != nil {
 			return StreamData{}, err
 		}
@@ -138,21 +135,15 @@ func (c *PlayerConfig) getBestAudioStream() (StreamData, error) {
 	return c.streamData[0], nil
 }
 
-func getAudioScore(stream StreamData) int {
-	audioBonus := 0
-	if strings.Index(stream.Ctype, "audio") != -1 {
-		audioBonus = 10000000
+func (c *PlayerConfig) getStreamData() ([]StreamData, error) {
+	if c.streamData == nil {
+		data, err := parseStreamData(c.Args.AdaptiveFmts)
+		if err != nil {
+			return nil, err
+		}
+		c.streamData = data
 	}
-	return stream.Bitrate + audioBonus
-}
-
-func (c *PlayerConfig) parseStreamData() ([]StreamData, error) {
-	splitted := strings.Split(c.Args.AdaptiveFmts, ",")
-	res := make([]StreamData, 0, 1)
-	for _, v := range splitted {
-		res = append(res, parseStreamDataFromUrlString(v))
-	}
-	return res, nil
+	return c.streamData, nil
 }
 
 func parseStreamDataFromUrlString(s string) StreamData {
@@ -172,15 +163,6 @@ func parseStreamDataFromUrlString(s string) StreamData {
 		Signature: res["signature"],
 		Url:       decodedUrl,
 		Ctype:     res["type"]}
-}
-
-func getIntOrDefault(val string) int {
-	res, err := strconv.Atoi(val)
-	if err != nil {
-		return 0
-	}
-
-	return res
 }
 
 func GetPlayerConfig(url string) (*PlayerConfig, error) {
@@ -204,57 +186,6 @@ func parseVideoForomHttpResponse(body []byte) (*PlayerConfig, error) {
 	var config PlayerConfig
 	err = json.Unmarshal([]byte(configJson), &config)
 	return &config, err
-}
-
-func parseBody(resp *http.Response) ([]byte, error) {
-	if resp.StatusCode > 299 || resp.StatusCode < 200 {
-		return nil, errors.New("Not 2xx http status!")
-	}
-	return ioutil.ReadAll(resp.Body)
-}
-
-func extractJsonFromString(s string) (string, error) {
-	curl, arr := 0, 0
-	var res strings.Builder
-	index := strings.Index(s, "{")
-	if index == -1 {
-		return "", errors.New("No opening tag found")
-	}
-	for _, v := range s[index:] {
-		res.WriteRune(v)
-		switch v {
-		case '{':
-			curl++
-		case '[':
-			arr++
-		case ']':
-			arr--
-		case '}':
-			curl--
-			if arr == 0 && curl == 0 {
-				return res.String(), nil
-			}
-		}
-	}
-
-	return "", errors.New("No json found in string")
-}
-
-func getConfig(body string) (string, error) {
-	return getBetween(body, "ytplayer.config = ", ";ytplayer.load")
-}
-
-func getBetween(s, start, end string) (string, error) {
-	offsetStart, lenS := strings.Index(s, start), len(start)
-	if offsetStart == -1 {
-		return "", errors.New("No substring match in string")
-	}
-	offsetEnd := strings.Index(s[offsetStart+lenS:], end)
-	if offsetEnd == -1 {
-		return "", errors.New("No substring match in string")
-	}
-
-	return s[offsetStart+lenS : offsetStart+lenS+offsetEnd], nil
 }
 
 func decryptSignature(s string) string {
