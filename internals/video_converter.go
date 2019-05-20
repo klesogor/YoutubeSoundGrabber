@@ -2,7 +2,6 @@ package internals
 
 import (
 	"bytes"
-	"io/ioutil"
 	"os/exec"
 	"strings"
 )
@@ -11,7 +10,7 @@ const (
 	_ = iota
 	MP3
 	MP4
-	WEBP
+	WEBM
 )
 
 type Convertable interface {
@@ -28,30 +27,21 @@ type FFMPEGConverter struct{}
 func (f *FFMPEGConverter) Convert(c Convertable, settings ConvertingSettings) ([]byte, error) {
 	options := []string{"-stdin", "-f", formatToExt(ctypeToFormat(c.GetContentType())), "-i", "-"}
 	if !settings.PreserveVideo {
-		options = append(options, "-nv")
+		options = append(options, "-vn")
 	}
 	options = append(options, "-f", formatToExt(settings.TargetFormat), "pipe:1")
-
 	cmd := exec.Command("ffmpeg", options...)
 	cmd.Stdin = bytes.NewReader(c.GetData())
-	buffer, err := cmd.StdoutPipe()
-	if err != nil {
-		return nil, err
-	}
-	err = cmd.Run()
-	if err != nil {
-		return nil, err
-	}
-	return ioutil.ReadAll(buffer)
+	return cmd.Output()
 }
 
 func formatToExt(f int) string {
 	switch f {
-	case 1:
+	case MP3:
 		return "mp3"
-	case 2:
+	case MP4:
 		return "mp4"
-	case 3:
+	case WEBM:
 		return "webm"
 	default:
 		return ""
@@ -63,8 +53,8 @@ func ctypeToFormat(ctype string) int {
 		return MP3
 	} else if strings.Index(ctype, "mp4") != -1 {
 		return MP4
-	} else if strings.Index(ctype, "webp") != -1 {
-		return WEBP
+	} else if strings.Index(ctype, "webm") != -1 {
+		return WEBM
 	}
 
 	return -1

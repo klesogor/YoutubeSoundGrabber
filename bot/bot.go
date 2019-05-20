@@ -1,6 +1,7 @@
 package bot
 
 import (
+	"fmt"
 	"log"
 
 	tgbotapi "github.com/Syfaro/telegram-bot-api"
@@ -8,7 +9,7 @@ import (
 	"github.com/klesogor/youtube-grabber/internals/youtube"
 )
 
-const processMessage = "Your request have been added to process queue. Please be patient, while we converting your audio..."
+const processMessage = "Hi! I'm youtube converter, just send me youtube url, ad I'l extract audio from it."
 
 var converter internals.FFMPEGConverter
 
@@ -37,13 +38,12 @@ func RunBot(token string) {
 			continue
 		}
 		switch update.Message.Text {
-
+		case "/start":
+			bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, processMessage))
+			break
+		default:
+			go processVideo(bot, update.Message)
 		}
-
-		chatId, messageId := update.Message.Chat.ID, update.Message.MessageID
-		msg := tgbotapi.NewMessage(chatId, processMessage)
-		msg.ReplyToMessageID = messageId
-		bot.Send(msg)
 	}
 }
 
@@ -63,8 +63,9 @@ func processVideo(bot *tgbotapi.BotAPI, message *tgbotapi.Message) {
 		reportError(bot, err, message)
 		return
 	}
-
-	bot.Send(tgbotapi.NewAudioUpload(message.Chat.ID, converted))
+	bytes := tgbotapi.FileBytes{Name: conf.Args.Title, Bytes: converted}
+	res, _ := bot.Send(tgbotapi.NewAudioUpload(message.Chat.ID, bytes))
+	fmt.Println(res)
 }
 func reportError(bot *tgbotapi.BotAPI, err error, message *tgbotapi.Message) {
 	bot.Send(tgbotapi.NewMessage(message.Chat.ID, err.Error()))
