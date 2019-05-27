@@ -13,7 +13,7 @@ func (player *PlayerConfig) DownloadAudio() (StreamData, error) {
 	if err != nil {
 		return StreamData{}, err
 	}
-	res, err := internals.DownloadSegmented(audio, internals.SegmentedDownloadConfig{ChunkSize: 989898, ConcurrencyLimit: 10}, Downloader)
+	res, err := internals.DownloadSegmented(audio, internals.SegmentedDownloadConfig{ChunkSize: 989898, ConcurrencyLimit: 50}, Downloader)
 	if err != nil {
 		return StreamData{}, err
 	}
