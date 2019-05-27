@@ -12,7 +12,7 @@ const (
 	dechipherFunc       = `(?s)function\(a\){a=a\.split\(""\);.+?;return a\.join\(""\)};`
 	chiperObjPattern    = `(?s)%s={.+?};`
 	jsObjectFuncPattern = `(?s)\w+:function\(a(,b)?\){.+?}(,|})`
-	basePath            = `www.youtube.com/`
+	basePath            = `http://www.youtube.com`
 	argsRegexp          = `\w+\(a,(\d+)`
 )
 
