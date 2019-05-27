@@ -102,7 +102,7 @@ func parseStreamDataFromUrlString(s string) StreamData {
 	return StreamData{
 		Clen:      getIntOrDefault(res["clen"]),
 		Bitrate:   getIntOrDefault(res["bitrate"]),
-		Signature: res["signature"],
+		Signature: res["s"],
 		Url:       decodedUrl,
 		Ctype:     res["type"]}
 }
