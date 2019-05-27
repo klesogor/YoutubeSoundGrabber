@@ -4,6 +4,7 @@ import (
 	"errors"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 )
@@ -76,11 +77,32 @@ func getAudioScore(stream StreamData) int {
 	return stream.Bitrate + audioBonus
 }
 
-func parseStreamData(adaptiveFmts string) ([]StreamData, error) {
-	splitted := strings.Split(adaptiveFmts, ",")
+func parseStreamData(c *PlayerConfig) ([]StreamData, error) {
+	splitted := strings.Split(c.Args.AdaptiveFmts, ",")
 	res := make([]StreamData, 0, 1)
 	for _, v := range splitted {
-		res = append(res, parseStreamDataFromUrlString(v))
+		stream := parseStreamDataFromUrlString(v)
+		stream.player = c
+		res = append(res, stream)
 	}
 	return res, nil
+}
+
+func parseStreamDataFromUrlString(s string) StreamData {
+	res := make(map[string]string)
+	splitted := strings.Split(s, "\u0026")
+	for _, v := range splitted {
+		pair := strings.SplitN(v, "=", 2)
+		if len(pair) >= 2 {
+			res[pair[0]] = pair[1]
+		}
+	}
+	decodedUrl, _ := url.QueryUnescape(res["url"])
+
+	return StreamData{
+		Clen:      getIntOrDefault(res["clen"]),
+		Bitrate:   getIntOrDefault(res["bitrate"]),
+		Signature: res["signature"],
+		Url:       decodedUrl,
+		Ctype:     res["type"]}
 }

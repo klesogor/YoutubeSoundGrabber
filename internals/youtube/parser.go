@@ -3,9 +3,7 @@ package youtube
 import (
 	"encoding/json"
 	"net/http"
-	"net/url"
 	"sort"
-	"strings"
 
 	"github.com/klesogor/youtube-grabber/internals"
 )
@@ -32,11 +30,16 @@ type StreamData struct {
 	Signature string
 	Bitrate   int
 	data      []byte
+	player    *PlayerConfig
 }
 
 func (s StreamData) GetDownloadUrl() string {
 	if s.Signature != "" {
-		return s.Url + "&signature="
+		dechipher, err := s.player.createDechipher()
+		if err != nil {
+			panic(err)
+		}
+		return s.Url + "&signature=" + dechipher.decryptSignature(s.Signature)
 	}
 
 	return s.Url
@@ -137,32 +140,13 @@ func (c *PlayerConfig) getBestAudioStream() (StreamData, error) {
 
 func (c *PlayerConfig) getStreamData() ([]StreamData, error) {
 	if c.streamData == nil {
-		data, err := parseStreamData(c.Args.AdaptiveFmts)
+		data, err := parseStreamData(c)
 		if err != nil {
 			return nil, err
 		}
 		c.streamData = data
 	}
 	return c.streamData, nil
-}
-
-func parseStreamDataFromUrlString(s string) StreamData {
-	res := make(map[string]string)
-	splitted := strings.Split(s, "\u0026")
-	for _, v := range splitted {
-		pair := strings.SplitN(v, "=", 2)
-		if len(pair) >= 2 {
-			res[pair[0]] = pair[1]
-		}
-	}
-	decodedUrl, _ := url.QueryUnescape(res["url"])
-
-	return StreamData{
-		Clen:      getIntOrDefault(res["clen"]),
-		Bitrate:   getIntOrDefault(res["bitrate"]),
-		Signature: res["signature"],
-		Url:       decodedUrl,
-		Ctype:     res["type"]}
 }
 
 func GetPlayerConfig(url string) (*PlayerConfig, error) {
