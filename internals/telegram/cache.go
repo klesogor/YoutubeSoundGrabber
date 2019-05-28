@@ -19,7 +19,7 @@ type audioCacheRecord struct {
 	TelegramAudioId string
 }
 
-type AudioCache interface {
+type TelegramAudioCache interface {
 	TryGetAudioId(videoId string) (string, error)
 	SaveAudioIdToCache(youtubeVideoId, telegramAudioId string) error
 }

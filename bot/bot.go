@@ -1,8 +1,9 @@
 package bot
 
 import (
-	"fmt"
 	"log"
+
+	"github.com/klesogor/youtube-grabber/internals/telegram"
 
 	tgbotapi "github.com/Syfaro/telegram-bot-api"
 	"github.com/klesogor/youtube-grabber/internals"
@@ -18,7 +19,7 @@ type TelegramContext struct {
 	messageId int
 }
 
-func RunBot(token string) {
+func RunBot(token string, cache telegram.TelegramAudioCache) {
 	bot, err := tgbotapi.NewBotAPI(token)
 	if err != nil {
 		log.Panic(err)
@@ -42,15 +43,20 @@ func RunBot(token string) {
 			bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, processMessage))
 			break
 		default:
-			go processVideo(bot, update.Message)
+			go processVideo(bot, update.Message, cache)
 		}
 	}
 }
 
-func processVideo(bot *tgbotapi.BotAPI, message *tgbotapi.Message) {
+func processVideo(bot *tgbotapi.BotAPI, message *tgbotapi.Message, cache telegram.TelegramAudioCache) {
 	conf, err := youtube.GetPlayerConfig(message.Text)
 	if err != nil {
 		reportError(bot, err, message)
+		return
+	}
+	if audioId, err := cache.TryGetAudioId(conf.Args.VideoID); err == nil {
+		file := tgbotapi.File{FileID: audioId}
+		bot.Send(tgbotapi.NewAudioUpload(message.Chat.ID, file))
 		return
 	}
 	audio, err := conf.DownloadAudio()
@@ -64,8 +70,10 @@ func processVideo(bot *tgbotapi.BotAPI, message *tgbotapi.Message) {
 		return
 	}
 	bytes := tgbotapi.FileBytes{Name: conf.Args.Title, Bytes: converted}
-	res, _ := bot.Send(tgbotapi.NewAudioUpload(message.Chat.ID, bytes))
-	fmt.Println(res)
+	res, err := bot.Send(tgbotapi.NewAudioUpload(message.Chat.ID, bytes))
+	if err != nil {
+		cache.SaveAudioIdToCache(conf.Args.VideoID, res.Audio.FileID)
+	}
 }
 func reportError(bot *tgbotapi.BotAPI, err error, message *tgbotapi.Message) {
 	bot.Send(tgbotapi.NewMessage(message.Chat.ID, err.Error()))
