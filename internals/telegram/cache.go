@@ -62,5 +62,7 @@ func (c MongoCache) TryGetAudioId(videoId string) (string, error) {
 
 func (c MongoCache) SaveAudioIdToCache(youtubeVideoId, telegramAudioId string) error {
 	record := audioCacheRecord{YoutubeVideoId: youtubeVideoId, TelegramAudioId: telegramAudioId}
-	return c.collection.InsertOne(context.Background(), record)
+	_, err := c.collection.InsertOne(context.Background(), record)
+
+	return err
 }
