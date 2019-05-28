@@ -4,6 +4,8 @@ WORKDIR /app
 
 COPY . .
 
+RUN apt-get update && apt-get install ffmpeg -y
+
 RUN ["go", "get", "github.com/githubnemo/CompileDaemon"]
 
 ENTRYPOINT CompileDaemon -log-prefix=false -command="./youtube-grabber"

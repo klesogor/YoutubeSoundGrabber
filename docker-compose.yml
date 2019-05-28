@@ -1,4 +1,4 @@
-version: "3.7"
+version: "3.3"
 services:
     bot:
         container_name: bot
@@ -7,11 +7,15 @@ services:
           dockerfile: bot.docker
         volumes:
             - ./:/app
+        depends_on: 
+            - mongo
     mongo:
         container_name: mongo
         image: mongo:3.4.20-xenial
         volumes:
             - mongo_data:/data/db
+        ports:
+            - '27017:27017'
             
 volumes:
   mongo_data:
