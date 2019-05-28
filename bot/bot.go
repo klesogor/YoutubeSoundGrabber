@@ -10,7 +10,7 @@ import (
 	"github.com/klesogor/youtube-grabber/internals/youtube"
 )
 
-const processMessage = "Hi! I'm youtube converter, just send me youtube url, ad I'l extract audio from it."
+const processMessage = "Hi! I'm youtube converter, just send me youtube url, ad I will extract audio from it."
 
 var converter internals.FFMPEGConverter
 
@@ -55,8 +55,7 @@ func processVideo(bot *tgbotapi.BotAPI, message *tgbotapi.Message, cache telegra
 		return
 	}
 	if audioId, err := cache.TryGetAudioId(conf.Args.VideoID); err == nil {
-		file := tgbotapi.File{FileID: audioId}
-		bot.Send(tgbotapi.NewAudioUpload(message.Chat.ID, file))
+		bot.Send(tgbotapi.NewAudioShare(message.Chat.ID, audioId))
 		return
 	}
 	audio, err := conf.DownloadAudio()
@@ -71,7 +70,7 @@ func processVideo(bot *tgbotapi.BotAPI, message *tgbotapi.Message, cache telegra
 	}
 	bytes := tgbotapi.FileBytes{Name: conf.Args.Title, Bytes: converted}
 	res, err := bot.Send(tgbotapi.NewAudioUpload(message.Chat.ID, bytes))
-	if err != nil {
+	if err == nil {
 		cache.SaveAudioIdToCache(conf.Args.VideoID, res.Audio.FileID)
 	}
 }

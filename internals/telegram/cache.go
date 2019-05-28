@@ -3,6 +3,7 @@ package telegram
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -47,21 +48,24 @@ func NewMongoCache(connection string) MongoCache {
 }
 
 func (c MongoCache) TryGetAudioId(videoId string) (string, error) {
-	filter := bson.D{{Key: "YoutubeVideoId", Value: videoId}}
+	filter := bson.D{{Key: "youtubevideoid", Value: videoId}}
 	var res audioCacheRecord
 	err := c.collection.FindOne(context.Background(), filter).Decode(&res)
 	if err != nil {
 		return "", err
 	}
 	if res.TelegramAudioId != "" {
+		fmt.Printf("Retrived audio %s for video %s\n", res.TelegramAudioId, videoId)
 		return res.TelegramAudioId, nil
 	}
+	fmt.Printf("Cache miss")
 
 	return "", errors.New("Cache miss")
 }
 
 func (c MongoCache) SaveAudioIdToCache(youtubeVideoId, telegramAudioId string) error {
 	record := audioCacheRecord{YoutubeVideoId: youtubeVideoId, TelegramAudioId: telegramAudioId}
+	fmt.Printf("Added audio %s for video %s\n", telegramAudioId, youtubeVideoId)
 	_, err := c.collection.InsertOne(context.Background(), record)
 
 	return err
